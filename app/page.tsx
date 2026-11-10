@@ -21,7 +21,13 @@ import {
   Key,
   Layers,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  User,
+  Lock,
+  Mail,
+  LogOut,
+  GraduationCap,
+  ArrowRight
 } from "lucide-react";
 import {
   DocumentRecord,
@@ -31,7 +37,8 @@ import {
   QuizQuestion,
   GapReport,
   RevisionPlan,
-  AssessmentAttempt
+  AssessmentAttempt,
+  UserProfile
 } from "@/lib/types";
 import { DEMO_DOCUMENTS } from "@/lib/demoData";
 import {
@@ -79,6 +86,15 @@ export default function GapFinderApp() {
   // Performance Attempts
   const [attempts, setAttempts] = useState<AssessmentAttempt[]>([]);
 
+  // User Authentication State
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authName, setAuthName] = useState<string>("");
+  const [authEmail, setAuthEmail] = useState<string>("");
+  const [authPassword, setAuthPassword] = useState<string>("");
+  const [authSubject, setAuthSubject] = useState<string>("Python & AI");
+  const [authError, setAuthError] = useState<string>("");
+
   // UI Modal for Viewing Document Text
   const [viewingDoc, setViewingDoc] = useState<DocumentRecord | null>(null);
   const [loadingAction, setLoadingAction] = useState<string>("");
@@ -88,6 +104,40 @@ export default function GapFinderApp() {
   const [pasteDocType, setPasteDocType] = useState<DocumentRecord["doc_type"]>("Study Notes");
   const [pasteTitle, setPasteTitle] = useState<string>("");
   const [pasteContent, setPasteContent] = useState<string>("");
+
+  function handleSignIn(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (!authEmail.trim() || !authPassword.trim()) {
+      setAuthError("Please enter your email and password.");
+      return;
+    }
+    const user: UserProfile = {
+      name: authName.trim() || authEmail.split("@")[0] || "Student",
+      email: authEmail.trim(),
+      role: "Student",
+      targetSubject: authSubject || "Python & AI"
+    };
+    setCurrentUser(user);
+    localStorage.setItem("gapfinder_user", JSON.stringify(user));
+    setAuthError("");
+  }
+
+  function handleDemoLogin(role = "AI Intern Evaluator") {
+    const demoUser: UserProfile = {
+      name: role,
+      email: "evaluator@igebra.ai",
+      role: "Evaluator",
+      targetSubject: "Python, AI & Data Science"
+    };
+    setCurrentUser(demoUser);
+    localStorage.setItem("gapfinder_user", JSON.stringify(demoUser));
+    setAuthError("");
+  }
+
+  function handleLogout() {
+    setCurrentUser(null);
+    localStorage.removeItem("gapfinder_user");
+  }
 
   // Extract text from file (PDF using pdf.js or TXT)
   async function extractFileContent(file: File): Promise<{ text: string; pageCount: number; status: "Success" | "OCR Required" }> {
@@ -156,6 +206,13 @@ export default function GapFinderApp() {
 
   // Load Initial Demo Course on Mount
   useEffect(() => {
+    const savedUser = localStorage.getItem("gapfinder_user");
+    if (savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (e) {}
+    }
+
     const savedDocs = localStorage.getItem("gapfinder_docs");
     const savedAttempts = localStorage.getItem("gapfinder_attempts");
 
@@ -464,6 +521,175 @@ export default function GapFinderApp() {
     { name: "Performance", icon: BarChart3 }
   ];
 
+  // If not logged in, render the Student Login & Evaluator Gateway
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 relative overflow-hidden">
+        {/* Glow Effects */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-[350px] h-[350px] bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-md relative z-10 space-y-6">
+          {/* Header Branding */}
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-semibold">
+              <GraduationCap className="w-4 h-4" />
+              <span>{`{igebra.ai}`} • AI Ready School Ed-Tech Hub</span>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xl shadow-xl shadow-sky-500/30">
+                GF
+              </div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">GapFinder AI</h1>
+            </div>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Diagnostic assessment & evidence-grounded study roadmap designed for Ed-Tech learning.
+            </p>
+          </div>
+
+          {/* 1-Click Fast Pass for Evaluators / HR */}
+          <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-900/95 border border-sky-500/30 shadow-xl shadow-sky-500/5 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-sky-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Assignment Evaluator Access
+              </span>
+              <span className="text-[10px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-full font-mono">1-Click</span>
+            </div>
+            <button
+              onClick={() => handleDemoLogin("AI Intern Evaluator (igebra.ai)")}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-semibold text-xs shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 transition"
+            >
+              <span>🚀 1-Click Instant Demo Login (For Sandhya / HR)</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <p className="text-[11px] text-slate-500 text-center">
+              Skip registration and instantly explore the complete diagnostic system.
+            </p>
+          </div>
+
+          {/* Student Login / Sign Up Form */}
+          <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
+            <div className="flex border-b border-slate-800 pb-3">
+              <button
+                type="button"
+                onClick={() => { setAuthMode("signin"); setAuthError(""); }}
+                className={`flex-1 text-center pb-2 text-xs font-semibold transition border-b-2 -mb-3.5 ${
+                  authMode === "signin"
+                    ? "border-sky-500 text-sky-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Student Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode("signup"); setAuthError(""); }}
+                className={`flex-1 text-center pb-2 text-xs font-semibold transition border-b-2 -mb-3.5 ${
+                  authMode === "signup"
+                    ? "border-sky-500 text-sky-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                New Student Register
+              </button>
+            </div>
+
+            {authError && (
+              <div className="p-2.5 rounded-lg bg-red-950/40 border border-red-800 text-red-400 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSignIn} className="space-y-3">
+              {authMode === "signup" && (
+                <>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Full Student Name</label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        placeholder="e.g. Bindu Madhavi"
+                        value={authName}
+                        onChange={e => setAuthName(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Target Subject</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Python Programming, Machine Learning"
+                      value={authSubject}
+                      onChange={e => setAuthSubject(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Student Email</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="student@example.com"
+                    value={authEmail}
+                    onChange={e => setAuthEmail(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Password</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={authPassword}
+                    onChange={e => setAuthPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs transition shadow-lg shadow-sky-500/20"
+              >
+                {authMode === "signin" ? "Sign In to Dashboard" : "Register Student Account"}
+              </button>
+            </form>
+
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => handleDemoLogin("Guest Student")}
+                className="text-xs text-slate-400 hover:text-sky-400 transition"
+              >
+                Or continue as <span className="underline font-medium">Guest Student</span> →
+              </button>
+            </div>
+          </div>
+
+          <div className="text-center text-[11px] text-slate-500">
+            Candidate Assignment for <span className="text-slate-300 font-semibold">{`{igebra.ai}`}</span> • AI Ready School
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100">
       {/* Top Navigation */}
@@ -509,6 +735,24 @@ export default function GapFinderApp() {
               <Key className="w-3.5 h-3.5 text-amber-400" />
               <span>{groqKey ? "Groq Key Configured" : "Add Groq Key"}</span>
             </button>
+
+            {currentUser && (
+              <div className="flex items-center gap-2 bg-slate-800/80 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs ml-1">
+                <div className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-bold">
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-slate-200 font-medium truncate max-w-[110px] hidden sm:inline" title={currentUser.name}>
+                  {currentUser.name}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="text-slate-400 hover:text-red-400 transition p-0.5 ml-0.5"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

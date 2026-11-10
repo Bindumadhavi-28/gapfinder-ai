@@ -101,3 +101,10 @@ export interface AssessmentAttempt {
   percentage: number;
   created_at: string;
 }
+
+export interface UserProfile {
+  name: string;
+  email: string;
+  role: "Student" | "Instructor" | "Evaluator";
+  targetSubject?: string;
+}
