@@ -83,6 +83,77 @@ export default function GapFinderApp() {
   const [viewingDoc, setViewingDoc] = useState<DocumentRecord | null>(null);
   const [loadingAction, setLoadingAction] = useState<string>("");
 
+  // Paste Text Modal State
+  const [showPasteModal, setShowPasteModal] = useState<boolean>(false);
+  const [pasteDocType, setPasteDocType] = useState<DocumentRecord["doc_type"]>("Study Notes");
+  const [pasteTitle, setPasteTitle] = useState<string>("");
+  const [pasteContent, setPasteContent] = useState<string>("");
+
+  // Extract text from file (PDF using pdf.js or TXT)
+  async function extractFileContent(file: File): Promise<{ text: string; pageCount: number; status: "Success" | "OCR Required" }> {
+    if (file.name.toLowerCase().endsWith(".pdf")) {
+      try {
+        if (typeof window !== "undefined" && !(window as any).pdfjsLib) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+            script.onload = () => {
+              (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
+                "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+              resolve(true);
+            };
+            script.onerror = () => reject(new Error("Failed to load PDF extraction engine"));
+            document.head.appendChild(script);
+          });
+        }
+
+        const pdfjs = (window as any).pdfjsLib;
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        const pageCount = pdf.numPages;
+        let extractedText = "";
+
+        for (let i = 1; i <= pageCount; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          let pageText = "";
+          let lastY: number | null = null;
+
+          for (const item of textContent.items) {
+            if (!item || !item.str) continue;
+            const currentY = item.transform && item.transform.length >= 6 ? item.transform[5] : null;
+            if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 5) {
+              pageText += "\n";
+            } else if (item.hasEOL) {
+              pageText += "\n";
+            } else if (pageText.length > 0 && !pageText.endsWith("\n") && !pageText.endsWith(" ") && !item.str.startsWith(" ")) {
+              pageText += " ";
+            }
+            pageText += item.str;
+            lastY = currentY;
+          }
+
+          pageText = pageText.trim();
+          if (pageText) {
+            extractedText += `[Page ${i}]\n${pageText}\n\n`;
+          }
+        }
+
+        const cleanText = extractedText.trim();
+        const status = cleanText.length > 15 ? "Success" : "OCR Required";
+        return { text: cleanText, pageCount, status };
+      } catch (err) {
+        console.error("PDF extraction error:", err);
+        return { text: "", pageCount: 1, status: "OCR Required" };
+      }
+    } else {
+      const text = await file.text();
+      const pageCount = Math.max(1, Math.ceil(text.length / 1500));
+      return { text: text.trim(), pageCount, status: text.trim().length > 15 ? "Success" : "OCR Required" };
+    }
+  }
+
   // Load Initial Demo Course on Mount
   useEffect(() => {
     const savedDocs = localStorage.getItem("gapfinder_docs");
@@ -151,24 +222,24 @@ export default function GapFinderApp() {
     loadDocumentsIntoRAG(updated);
   }
 
-  // Handle Text/File Ingestion
+  // Handle Text/File Ingestion with PDF Extraction
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>, docType: DocumentRecord["doc_type"]) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setLoadingAction("Extracting document...");
+    setLoadingAction(`Extracting ${files.length} document(s) with pdfjs-dist...`);
     const newDocs: DocumentRecord[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const text = await file.text();
+      const { text, pageCount, status } = await extractFileContent(file);
 
       newDocs.push({
         id: `doc_${Date.now()}_${i}`,
         filename: file.name,
         doc_type: docType,
-        page_count: Math.max(1, Math.ceil(text.length / 1500)),
-        status: text.trim().length > 15 ? "Success" : "OCR Required",
+        page_count: pageCount,
+        status: status,
         extracted_text: text,
         created_at: new Date().toISOString()
       });
@@ -177,6 +248,26 @@ export default function GapFinderApp() {
     const all = [...documents, ...newDocs];
     loadDocumentsIntoRAG(all);
     setLoadingAction("");
+    e.target.value = "";
+  }
+
+  // Handle Pasted Text
+  function handleSavePastedText() {
+    if (!pasteContent.trim()) return;
+    const title = pasteTitle.trim() || `${pasteDocType} (Pasted Text)`;
+    const newDoc: DocumentRecord = {
+      id: `doc_paste_${Date.now()}`,
+      filename: title.endsWith(".txt") ? title : `${title}.txt`,
+      doc_type: pasteDocType,
+      page_count: Math.max(1, Math.ceil(pasteContent.length / 1500)),
+      status: "Success",
+      extracted_text: pasteContent.trim(),
+      created_at: new Date().toISOString()
+    };
+    loadDocumentsIntoRAG([...documents, newDoc]);
+    setPasteTitle("");
+    setPasteContent("");
+    setShowPasteModal(false);
   }
 
   // Generate Diagnostic Quiz
@@ -428,11 +519,20 @@ export default function GapFinderApp() {
            ========================================================================= */}
         {activeTab === 0 && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-white">Course Materials & Ingestion Pipeline</h2>
-              <p className="text-xs text-slate-400">
-                Upload your digital syllabus, notes, and past exam papers to extract page-by-page text with pdfjs-dist.
-              </p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-white">Course Materials & Ingestion Pipeline</h2>
+                <p className="text-xs text-slate-400">
+                  Upload your digital syllabus, notes, and past exam papers to extract page-by-page text with pdfjs-dist.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPasteModal(true)}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/20 transition flex items-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>📝 Paste Text Directly</span>
+              </button>
             </div>
 
             {/* 3 Clear Upload Boxes */}
@@ -1263,6 +1363,78 @@ export default function GapFinderApp() {
                 className="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-xs text-white font-medium transition"
               >
                 Save Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal: Paste Text Directly */}
+      {showPasteModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-400" />
+                <span>Paste Study Material Text</span>
+              </h3>
+              <button
+                onClick={() => setShowPasteModal(false)}
+                className="text-slate-400 hover:text-white text-sm font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Document Category</label>
+                <select
+                  value={pasteDocType}
+                  onChange={e => setPasteDocType(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-sky-500"
+                >
+                  <option value="Syllabus">📘 Syllabus (Units & Topics)</option>
+                  <option value="Study Notes">📚 Study Notes & Textbook Excerpts</option>
+                  <option value="Previous Question Paper">📝 Previous Question Paper</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Document Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Unit 1 Machine Learning Notes"
+                  value={pasteTitle}
+                  onChange={e => setPasteTitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Paste Course Content</label>
+                <textarea
+                  rows={8}
+                  placeholder="Paste your syllabus outline, chapter text, lecture notes, or exam questions here..."
+                  value={pasteContent}
+                  onChange={e => setPasteContent(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowPasteModal(false)}
+                className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePastedText}
+                disabled={!pasteContent.trim()}
+                className="px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-xs text-white font-medium transition"
+              >
+                Save & Ingest
               </button>
             </div>
           </div>
