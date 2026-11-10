@@ -183,6 +183,13 @@ export default function GapFinderApp() {
     setDocuments(docs);
     localStorage.setItem("gapfinder_docs", JSON.stringify(docs));
 
+    if (docs.length === 0) {
+      setTopics([]);
+      setWeightage({});
+      setChunks([]);
+      return;
+    }
+
     // Combine syllabus, notes, past papers
     let sylText = "";
     let notText = "";
@@ -199,9 +206,19 @@ export default function GapFinderApp() {
       }
     });
 
-    const parsedTopics = parseTopics(sylText);
+    const parsedTopics = parseTopics(sylText, notText || pasText);
     const parsedWeight = calculateExamWeightage(parsedTopics, pasText);
-    const parsedChunks = chunkNotes(notText);
+
+    let combinedNotesForChunking = notText;
+    if (!combinedNotesForChunking.trim()) {
+      // If user only uploaded syllabus or past paper, chunk whatever is available so quiz can be generated
+      docs.forEach(doc => {
+        if (doc.status === "Success" && doc.extracted_text) {
+          combinedNotesForChunking += `[SOURCE: ${doc.filename}]\n${doc.extracted_text}\n\n`;
+        }
+      });
+    }
+    const parsedChunks = chunkNotes(combinedNotesForChunking);
 
     setTopics(parsedTopics);
     setWeightage(parsedWeight);
@@ -212,8 +229,19 @@ export default function GapFinderApp() {
     loadDocumentsIntoRAG(DEMO_DOCUMENTS);
     setQuiz(null);
     setQuizSubmitted(false);
+    setUserAnswers({});
     setGapReport(null);
     setRevisionPlan(null);
+  }
+
+  function handleClearAll() {
+    loadDocumentsIntoRAG([]);
+    setQuiz(null);
+    setQuizSubmitted(false);
+    setUserAnswers({});
+    setGapReport(null);
+    setRevisionPlan(null);
+    setChatMessages([]);
   }
 
   // Handle Document Delete
@@ -245,8 +273,16 @@ export default function GapFinderApp() {
       });
     }
 
-    const all = [...documents, ...newDocs];
+    // Automatically replace demo documents when user uploads their custom files
+    const isOnlyDemo = documents.length > 0 && documents.every(d => d.id.startsWith("demo_doc_"));
+    const all = isOnlyDemo ? newDocs : [...documents.filter(d => !d.id.startsWith("demo_doc_")), ...newDocs];
+
     loadDocumentsIntoRAG(all);
+    setQuiz(null);
+    setQuizSubmitted(false);
+    setUserAnswers({});
+    setGapReport(null);
+    setRevisionPlan(null);
     setLoadingAction("");
     e.target.value = "";
   }
@@ -264,7 +300,16 @@ export default function GapFinderApp() {
       extracted_text: pasteContent.trim(),
       created_at: new Date().toISOString()
     };
-    loadDocumentsIntoRAG([...documents, newDoc]);
+
+    const isOnlyDemo = documents.length > 0 && documents.every(d => d.id.startsWith("demo_doc_"));
+    const all = isOnlyDemo ? [newDoc] : [...documents.filter(d => !d.id.startsWith("demo_doc_")), newDoc];
+
+    loadDocumentsIntoRAG(all);
+    setQuiz(null);
+    setQuizSubmitted(false);
+    setUserAnswers({});
+    setGapReport(null);
+    setRevisionPlan(null);
     setPasteTitle("");
     setPasteContent("");
     setShowPasteModal(false);
@@ -276,7 +321,7 @@ export default function GapFinderApp() {
     setUserAnswers({});
     setQuizSubmitted(false);
 
-    if (aiProvider === "groq" && groqKey) {
+    if (aiProvider === "groq") {
       try {
         const sampleChunks = chunks.slice(0, 4).map(c => `[${c.citation}]:\n${c.content.slice(0, 300)}`).join("\n\n");
         const topicsStr = topics.slice(0, 8).map(t => t.name).join(", ");
@@ -287,17 +332,25 @@ export default function GapFinderApp() {
             mode: "quiz",
             prompt: `Create 4 diagnostic multiple-choice questions for topics: ${topicsStr}`,
             context: sampleChunks,
-            customKey: groqKey
+            customKey: groqKey || undefined
           })
         });
-        const data = await res.json();
-        if (data.quiz && Array.isArray(data.quiz) && data.quiz.length >= 2) {
-          setQuiz(data.quiz);
-          setLoadingAction("");
-          return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.quiz && Array.isArray(data.quiz) && data.quiz.length >= 2) {
+            setQuiz(data.quiz);
+            setLoadingAction("");
+            return;
+          }
         }
       } catch (err) {}
     }
+
+    // High quality local RAG fallback
+    const localQuiz = generateQuizLocal(chunks, topics);
+    setQuiz(localQuiz);
+    setLoadingAction("");
+  }
 
     // High quality local RAG fallback
     const localQuiz = generateQuizLocal(chunks, topics);
@@ -354,7 +407,7 @@ export default function GapFinderApp() {
     const citations = relevant.map(r => r.citation);
     const context = relevant.map(r => `[${r.citation}]:\n${r.content}`).join("\n\n");
 
-    if (aiProvider === "groq" && groqKey) {
+    if (aiProvider === "groq") {
       try {
         const res = await fetch("/api/groq", {
           method: "POST",
@@ -363,20 +416,22 @@ export default function GapFinderApp() {
             mode: "explain",
             prompt: query,
             context,
-            customKey: groqKey
+            customKey: groqKey || undefined
           })
         });
-        const data = await res.json();
-        setChatMessages(prev => [
-          ...prev,
-          {
-            role: "assistant",
-            content: data.answer || "Not found in your uploaded material.",
-            citations: data.answer?.includes("Not found") ? [] : citations
-          }
-        ]);
-        setChatLoading(false);
-        return;
+        if (res.ok) {
+          const data = await res.json();
+          setChatMessages(prev => [
+            ...prev,
+            {
+              role: "assistant",
+              content: data.answer || "Not found in your uploaded material.",
+              citations: data.answer?.includes("Not found") ? [] : citations
+            }
+          ]);
+          setChatLoading(false);
+          return;
+        }
       } catch (e) {}
     }
 
@@ -435,7 +490,16 @@ export default function GapFinderApp() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClearAll}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-950/30 text-red-400 border border-red-800/40 hover:bg-red-900/40 transition flex items-center gap-1.5"
+              title="Clear all stored documents and start fresh on a new subject"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear All (New Subject)</span>
+            </button>
+
             <button
               onClick={handleResetToSample}
               className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition flex items-center gap-1.5"
@@ -602,13 +666,23 @@ export default function GapFinderApp() {
                     {documents.length} Files Stored
                   </span>
                 </h3>
-                <button
-                  onClick={handleResetToSample}
-                  className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 font-medium"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>Reset to Demo Course</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleClearAll}
+                    className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 font-medium"
+                    title="Clear all documents"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Clear All</span>
+                  </button>
+                  <button
+                    onClick={handleResetToSample}
+                    className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 font-medium"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Reset to Demo Course</span>
+                  </button>
+                </div>
               </div>
 
               {documents.length === 0 ? (
@@ -716,29 +790,37 @@ export default function GapFinderApp() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {topics.map(t => {
-                      const w = weightage[t.name] || { count: 0, total_marks: 0, percentage: 0 };
-                      return (
-                        <tr key={t.name} className="hover:bg-slate-800/40 transition">
-                          <td className="py-3 px-4 text-slate-400 font-medium">{t.unit}</td>
-                          <td className="py-3 px-4 text-slate-200 font-medium">{t.name}</td>
-                          <td className="py-3 px-4 text-center font-mono text-slate-300">{w.count}</td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <div className="w-16 bg-slate-800 h-2 rounded-full overflow-hidden">
-                                <div
-                                  className="bg-sky-500 h-full rounded-full"
-                                  style={{ width: `${Math.min(100, w.percentage * 4)}%` }}
-                                />
+                    {topics.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-slate-500 text-xs">
+                          No topics found yet. Upload your syllabus or notes in Tab 1, or click "Load Demo ML Course".
+                        </td>
+                      </tr>
+                    ) : (
+                      topics.map(t => {
+                        const w = weightage[t.name] || { count: 0, total_marks: 0, percentage: 0 };
+                        return (
+                          <tr key={t.name} className="hover:bg-slate-800/40 transition">
+                            <td className="py-3 px-4 text-slate-400 font-medium">{t.unit}</td>
+                            <td className="py-3 px-4 text-slate-200 font-medium">{t.name}</td>
+                            <td className="py-3 px-4 text-center font-mono text-slate-300">{w.count}</td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 bg-slate-800 h-2 rounded-full overflow-hidden">
+                                  <div
+                                    className="bg-sky-500 h-full rounded-full"
+                                    style={{ width: `${Math.min(100, w.percentage * 4)}%` }}
+                                  />
+                                </div>
+                                <span className="font-mono font-bold text-sky-400 w-10 text-right">
+                                  {w.percentage}%
+                                </span>
                               </div>
-                              <span className="font-mono font-bold text-sky-400 w-10 text-right">
-                                {w.percentage}%
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>

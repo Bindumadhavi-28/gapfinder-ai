@@ -1,70 +1,83 @@
 import { Chunk, DocumentRecord, GapReport, GapTopicItem, QuizQuestion, RevisionPlan, Topic, TopicScore, TopicWeight } from "./types";
 
 /**
- * Robust multi-delimiter syllabus topic parser.
- * Handles inline units, bullet markers, numbered lists, and strips metadata noise.
+ * Robust multi-delimiter topic parser.
+ * Extracts topics from syllabus, with automatic fallback to study notes if no syllabus is provided.
  */
-export function parseTopics(syllabusText: string): Topic[] {
-  const topics: Topic[] = [];
+export function parseTopics(syllabusText: string, notesFallbackText = ""): Topic[] {
+  let topics: Topic[] = [];
   const raw = (syllabusText || "").trim();
-  if (!raw) return [];
 
-  // 1. Normalize and split on inline units and bullets
-  let cleaned = raw.replace(/(Unit\s+\d+[\s\-\–:]*|Chapter\s+\d+[\s\-\–:]*|Module\s+\d+[\s\-\–:]*)/gi, "\n__UNIT__:$1");
-  cleaned = cleaned.replace(/[\u2022\u25cf\u25aa\u25cb•▪▫]\s*/g, "\n__BULLET__:");
-  cleaned = cleaned.replace(/(?<=[.;\n])\s*(\d+[\.\)])\s+/g, "\n__NUM__:$1 ");
+  function extractFromText(text: string, defaultUnit: string): Topic[] {
+    const list: Topic[] = [];
+    let cleaned = text.replace(/(Unit\s+\d+[\s\-\–:]*|Chapter\s+\d+[\s\-\–:]*|Module\s+\d+[\s\-\–:]*)/gi, "\n__UNIT__:$1");
+    cleaned = cleaned.replace(/[\u2022\u25cf\u25aa\u25cb•▪▫]\s*/g, "\n__BULLET__:");
+    cleaned = cleaned.replace(/(?<=[.;\n])\s*(\d+[\.\)])\s+/g, "\n__NUM__:$1 ");
 
-  const lines = cleaned.split("\n");
-  let currentUnit = "Core Unit";
-  const seenNames = new Set<string>();
+    const lines = cleaned.split("\n");
+    let currentUnit = defaultUnit;
+    const seenNames = new Set<string>();
 
-  const noisePatterns = [
-    /^\[Page\s+\d+\]/i, /^course information/i, /^subject:/i, /^level:/i,
-    /^total:\s*\d+/i, /^instructions/i, /^time:/i, /^maximum marks/i,
-    /^sample syllabus/i, /^learning outcomes/i, /^credit/i, /^semester/i
-  ];
+    const noisePatterns = [
+      /^\[Page\s+\d+\]/i, /^\[SOURCE:/i, /^course information/i, /^subject:/i, /^level:/i,
+      /^total:\s*\d+/i, /^instructions/i, /^time:/i, /^maximum marks/i,
+      /^sample syllabus/i, /^learning outcomes/i, /^credit/i, /^semester/i
+    ];
 
-  for (let line of lines) {
-    line = line.trim();
-    if (!line || line.length < 4) continue;
-    if (noisePatterns.some(p => p.test(line))) continue;
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.length < 4) continue;
+      if (noisePatterns.some(p => p.test(line))) continue;
 
-    if (line.startsWith("__UNIT__:")) {
-      const unitHdr = line.replace("__UNIT__:", "").trim().replace(/[\.:\–\-]+$/, "");
-      if (unitHdr) currentUnit = unitHdr;
-    } else if (line.startsWith("__BULLET__:") || line.startsWith("__NUM__:")) {
-      let tName = line.replace(/^(__BULLET__|__NUM__):[\d\.\s\-\*•\)]*/, "").trim();
-      tName = tName.replace(/[\.;]+$/, "").trim();
+      if (line.startsWith("__UNIT__:")) {
+        const unitHdr = line.replace("__UNIT__:", "").trim().replace(/[\.:\–\-]+$/, "");
+        if (unitHdr) currentUnit = unitHdr;
+      } else if (line.startsWith("__BULLET__:") || line.startsWith("__NUM__:")) {
+        let tName = line.replace(/^(__BULLET__|__NUM__):[\d\.\s\-\*•\)]*/, "").trim();
+        tName = tName.replace(/[\.;]+$/, "").trim();
 
-      const subParts = tName.includes(";") ? tName.split(";").map(p => p.trim()) : [tName];
-      for (let part of subParts) {
-        part = part.replace(/^[-*•\d\.\)]+\s*/, "").replace(/[\.;]+$/, "").trim();
-        if (part.length >= 4 && part.length <= 120 && !seenNames.has(part.toLowerCase())) {
-          if (!noisePatterns.some(p => p.test(part))) {
-            seenNames.add(part.toLowerCase());
-            topics.push({ unit: currentUnit, name: part, raw: line });
+        const subParts = tName.includes(";") ? tName.split(";").map(p => p.trim()) : [tName];
+        for (let part of subParts) {
+          part = part.replace(/^[-*•\d\.\)]+\s*/, "").replace(/[\.;]+$/, "").trim();
+          if (part.length >= 4 && part.length <= 120 && !seenNames.has(part.toLowerCase())) {
+            if (!noisePatterns.some(p => p.test(part))) {
+              seenNames.add(part.toLowerCase());
+              list.push({ unit: currentUnit, name: part, raw: line });
+            }
           }
         }
-      }
-    } else {
-      if (/^(UNIT|CHAPTER|MODULE)/i.test(line)) {
-        currentUnit = line.includes(":") ? line.split(":", 2)[1].trim() : line;
       } else {
-        const cleanL = line.replace(/^[\d\.\s\-\*•\)]+/, "").replace(/[\.;]+$/, "").trim();
-        if (cleanL.length >= 4 && cleanL.length <= 120 && !seenNames.has(cleanL.toLowerCase())) {
-          if (!noisePatterns.some(p => p.test(cleanL))) {
-            seenNames.add(cleanL.toLowerCase());
-            topics.push({ unit: currentUnit, name: cleanL, raw: line });
+        if (/^(UNIT|CHAPTER|MODULE)/i.test(line)) {
+          currentUnit = line.includes(":") ? line.split(":", 2)[1].trim() : line;
+        } else {
+          const cleanL = line.replace(/^[\d\.\s\-\*•\)]+/, "").replace(/[\.;]+$/, "").trim();
+          if (cleanL.length >= 4 && cleanL.length <= 120 && !seenNames.has(cleanL.toLowerCase())) {
+            if (!noisePatterns.some(p => p.test(cleanL))) {
+              seenNames.add(cleanL.toLowerCase());
+              list.push({ unit: currentUnit, name: cleanL, raw: line });
+            }
           }
         }
       }
     }
+
+    return list;
   }
 
-  if (topics.length === 0) {
-    const rawLines = lines.filter(l => l.length > 4 && !noisePatterns.some(p => p.test(l))).slice(0, 6);
-    for (const r of rawLines) {
-      topics.push({ unit: "General Concepts", name: r, raw: r });
+  if (raw) {
+    topics = extractFromText(raw, "Core Unit");
+  }
+
+  // Automatic Fallback: If syllabus was not provided or empty, extract topics directly from study notes!
+  if (topics.length === 0 && notesFallbackText.trim()) {
+    topics = extractFromText(notesFallbackText.trim(), "Course Module");
+    if (topics.length === 0) {
+      const candidateLines = notesFallbackText.split("\n")
+        .map(l => l.trim().replace(/^\[Page\s+\d+\]/i, "").trim())
+        .filter(l => l.length > 5 && l.length < 80);
+      for (const c of candidateLines.slice(0, 10)) {
+        topics.push({ unit: "Course Concepts", name: c, raw: c });
+      }
     }
   }
 
@@ -213,20 +226,21 @@ export function retrieveRelevantChunks(chunks: Chunk[], query: string, topK = 2)
  */
 export function generateQuizLocal(chunks: Chunk[], topics: Topic[]): QuizQuestion[] {
   if (!chunks || chunks.length === 0) {
+    const topicName = topics[0]?.name || "Core Subject Principles";
     return [
       {
         id: 1,
-        topic: "What is Machine Learning?",
-        question: "According to course notes, what is the primary distinction between traditional programming and machine learning?",
+        topic: topicName,
+        question: `Based on your course materials in '${topicName}', which statement accurately represents the core definition?`,
         options: [
-          "Traditional programming takes data and rules to produce answers; ML takes data and answers to discover rules.",
-          "ML operates strictly without any data.",
-          "Traditional programming uses deep neural networks exclusively.",
-          "Machine learning only works on hardware quantum processors."
+          `Core foundational rule and mechanism established in '${topicName}'.`,
+          `Auxiliary concept unrelated to the primary subject matter.`,
+          `Deprecated syntax no longer supported in current implementations.`,
+          `Isolated sub-routine executed strictly outside normal execution flow.`
         ],
-        answer: "Traditional programming takes data and rules to produce answers; ML takes data and answers to discover rules.",
-        citation: "02_ML_Study_Notes.pdf - Page 1",
-        explanation: "Traditional systems execute fixed human rules; ML algorithms learn patterns from data and answers."
+        answer: `Core foundational rule and mechanism established in '${topicName}'.`,
+        citation: "Uploaded Notes",
+        explanation: `Diagnostic verification for understanding of '${topicName}'.`
       }
     ];
   }
