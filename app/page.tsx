@@ -352,12 +352,6 @@ export default function GapFinderApp() {
     setLoadingAction("");
   }
 
-    // High quality local RAG fallback
-    const localQuiz = generateQuizLocal(chunks, topics);
-    setQuiz(localQuiz);
-    setLoadingAction("");
-  }
-
   // Submit Quiz & Evaluate
   function handleSubmitQuiz() {
     if (!quiz) return;
