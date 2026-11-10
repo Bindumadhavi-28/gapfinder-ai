@@ -1,16 +1,27 @@
 {
-  "name": "ai-chatbot-task",
+  "name": "gapfinder-ai",
   "version": "1.0.0",
-  "description": "> **\"Students often study everything equally and still miss what they don’t know. GapFinder AI works like a doctor for studying: it tests the student, finds what’s weak, and gives a prioritized revision treatment plan.\"**",
-  "main": "index.js",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "pdfjs-dist": "^6.5.438"
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "groq-sdk": "^0.8.0",
+    "pdfjs-dist": "4.4.168",
+    "lucide-react": "^0.453.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.4.5"
   }
 }
