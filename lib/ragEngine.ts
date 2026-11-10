@@ -10,7 +10,7 @@ export function parseTopics(syllabusText: string): Topic[] {
   if (!raw) return [];
 
   // 1. Normalize and split on inline units and bullets
-  let cleaned = raw.replace(/(?i)(Unit\s+\d+[\s\-\–:]*|Chapter\s+\d+[\s\-\–:]*|Module\s+\d+[\s\-\–:]*)/g, "\n__UNIT__:$1");
+  let cleaned = raw.replace(/(Unit\s+\d+[\s\-\–:]*|Chapter\s+\d+[\s\-\–:]*|Module\s+\d+[\s\-\–:]*)/gi, "\n__UNIT__:$1");
   cleaned = cleaned.replace(/[\u2022\u25cf\u25aa\u25cb•▪▫]\s*/g, "\n__BULLET__:");
   cleaned = cleaned.replace(/(?<=[.;\n])\s*(\d+[\.\)])\s+/g, "\n__NUM__:$1 ");
 
