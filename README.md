@@ -40,3 +40,4 @@ To prevent hallucinations and guarantee educational integrity, the application e
    - Enter your **Google Gemini API Key** (or leave it blank to run with rich pre-indexed demo questions).
    - Log in using `demo_student` / `demo123` or register a new account.
 4. In Tab 1, click **"🚀 Load Pre-Packaged Demo Dataset (Cell Energetics & Genetics)"** to immediately test the complete diagnosis loop!
+"# gapfinder-ai" 
