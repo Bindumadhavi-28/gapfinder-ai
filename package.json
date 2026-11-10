@@ -1,0 +1,16 @@
+{
+  "name": "ai-chatbot-task",
+  "version": "1.0.0",
+  "description": "> **\"Students often study everything equally and still miss what they don’t know. GapFinder AI works like a doctor for studying: it tests the student, finds what’s weak, and gives a prioritized revision treatment plan.\"**",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pdfjs-dist": "^6.5.438"
+  }
+}

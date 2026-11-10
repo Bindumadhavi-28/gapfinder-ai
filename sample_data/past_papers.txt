@@ -1,0 +1,10 @@
+[2024 Final Exam - 5 Marks] Explain the role of Photosystem II and photolysis of water in the light-dependent reactions of photosynthesis.
+[2024 Final Exam - 3 Marks] Distinguish between leading and lagging strand synthesis during DNA replication, mentioning Okazaki fragments.
+[2024 Midterm Exam - 5 Marks] Trace the flow of electrons through the mitochondrial electron transport chain and explain how ATP Synthase utilizes the proton gradient.
+[2023 Final Exam - 5 Marks] Describe the steps of the Calvin cycle, highlighting carbon fixation by the RuBisCO enzyme.
+[2023 Final Exam - 4 Marks] Calculate the net yield of ATP and NADH produced during Glycolysis and explain where pyruvate proceeds under aerobic conditions.
+[2023 Midterm Exam - 3 Marks] Explain the post-transcriptional modifications that convert eukaryotic pre-mRNA into mature mRNA.
+[2022 Final Exam - 5 Marks] What is chemiosmosis? Compare how ATP is synthesized in chloroplasts vs mitochondria.
+[2022 Final Exam - 3 Marks] Describe the three active ribosomal binding sites (A, P, E) during translation elongation.
+[2021 Final Exam - 5 Marks] Detail the roles of Helicase, Primase, and DNA Ligase in semiconservative replication.
+[2021 Midterm Exam - 4 Marks] Discuss the catalytic mechanism of RuBisCO in the stroma and explain why the cycle requires both ATP and NADPH.

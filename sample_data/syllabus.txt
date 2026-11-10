@@ -1,0 +1,17 @@
+UNIT 1: PHOTOSYNTHESIS & LIGHT REACTIONS
+- 1.1 Chloroplast Structure and Pigments (Chlorophyll a, b, Carotenoids, Thylakoid membrane)
+- 1.2 Light-Dependent Reactions (Photosystem II, Electron Transport, Photolysis of Water, ATP and NADPH generation)
+- 1.3 Calvin Cycle / Light-Independent Reactions (RuBisCO enzyme, Carbon fixation, G3P production, Regeneration of RuBP)
+
+UNIT 2: CELLULAR RESPIRATION & ENERGY HARVESTING
+- 2.1 Glycolysis (Glucose breakdown in cytosol, substrate-level phosphorylation, net yield of 2 ATP and 2 NADH)
+- 2.2 Citric Acid Cycle / Krebs Cycle (Mitochondrial matrix, Acetyl-CoA, oxidation of carbon, NADH/FADH2 production)
+- 2.3 Oxidative Phosphorylation & ATP Synthase (Inner mitochondrial membrane, proton gradient, chemiosmosis)
+
+UNIT 3: DNA REPLICATION & MOLECULAR GENETICS
+- 3.1 DNA Structure & Double Helix (Antiparallel strands, phosphodiester bonds, complementary base pairs A-T and G-C)
+- 3.2 Replication Machinery (Helicase unwinding, Primase, DNA Polymerase III, Leading vs Lagging strand, Okazaki fragments, Ligase)
+
+UNIT 4: GENE EXPRESSION & PROTEIN SYNTHESIS
+- 4.1 Transcription (RNA Polymerase, Promoter binding, mRNA synthesis, post-transcriptional capping and splicing)
+- 4.2 Translation (Ribosome subunits, mRNA codons, tRNA anticodons, amino acid elongation, termination)

@@ -1,0 +1,21 @@
+# Environment & Secrets
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.venv
+env/
+venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Local storage (optional: exclude cache, keep folder)
+storage/*
+!storage/.gitkeep

@@ -1,0 +1,7 @@
+[2024 Exam - 5 Marks] Explain the difference between mutable Lists and immutable Tuples. Why can a tuple be used as a dictionary key but not a list?
+[2024 Exam - 4 Marks] Describe the LEGB rule for Python variable scope and explain when the 'global' keyword is necessary.
+[2023 Exam - 5 Marks] Write a Python class demonstrating inheritance, constructor initialization using super(), and method overriding.
+[2023 Exam - 4 Marks] Explain how the 'with' statement handles file streams safely and compare read ('r') vs append ('a') modes.
+[2022 Exam - 5 Marks] Explain the average time complexity of Dictionary key lookups and describe how Hash Maps ensure O(1) performance.
+[2022 Exam - 3 Marks] Distinguish between 'break' and 'continue' in Python control flow loops with code examples.
+[2021 Exam - 4 Marks] Detail the execution order of 'try', 'except', 'else', and 'finally' blocks during exception handling.
